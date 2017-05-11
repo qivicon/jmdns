@@ -53,6 +53,7 @@ import javax.jmdns.impl.util.NamedThreadFactory;
  * mDNS implementation in Java.
  *
  * @author Arthur van Hoff, Rick Blair, Jeff Sonstein, Werner Randelshofer, Pierre Frisch, Scott Lewis, Kai Kreuzer
+ * @author Victor Toni - handling for removal of ServiceInfo
  */
 public class JmDNSImpl extends JmDNS implements DNSStatefulObject, DNSTaskStarter {
     private static Logger logger = LoggerFactory.getLogger(JmDNSImpl.class.getName());
@@ -891,6 +892,40 @@ public class JmDNSImpl extends JmDNS implements DNSStatefulObject, DNSTaskStarte
                         @Override
                         public void run() {
                             listener.serviceResolved(localEvent);
+                        }
+                    });
+                }
+            }
+        }
+    }
+
+    /**
+     * Triggers all relevant ServiceListeners that the ServiceInfo is about to be removed.
+     * 
+     * The removal may happen due to IP address reaching their TTL without renewal.
+     * 
+     * @param event
+     */
+    void handleServiceRemoved(final ServiceEvent event) {
+        final List<ServiceListenerStatus> list = _serviceListeners.get(event.getType().toLowerCase());
+        if (list != null) {
+            final List<ServiceListenerStatus> listCopy;
+            synchronized (list) {
+                if ( list.isEmpty() ) {
+                    // nothing to do
+                    return;
+                }
+                listCopy = new ArrayList<ServiceListenerStatus>(list);
+            }
+
+            // handle only services which have no "valid" data (anymore) 
+            if (event.getInfo() != null && !event.getInfo().hasData()) {
+                for (final ServiceListenerStatus listener : listCopy) {
+                    _executor.submit(new Runnable() {
+                        /** {@inheritDoc} */
+                        @Override
+                        public void run() {
+                            listener.serviceRemoved(event);
                         }
                     });
                 }
