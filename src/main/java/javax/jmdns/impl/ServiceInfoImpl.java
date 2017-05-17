@@ -792,7 +792,7 @@ public class ServiceInfoImpl extends ServiceInfo implements DNSListener, DNSStat
      */
     String readUTF(byte data[], int off, int len) {
         int offset = off;
-        StringBuffer buf = new StringBuffer();
+        final StringBuilder sb = new StringBuilder();
         for (int end = offset + len; offset < end;) {
             int ch = data[offset++] & 0xFF;
             switch (ch >> 4) {
@@ -829,9 +829,9 @@ public class ServiceInfoImpl extends ServiceInfo implements DNSListener, DNSStat
                     ch = ((ch & 0x3F) << 4) | (data[offset++] & 0x0f);
                     break;
             }
-            buf.append((char) ch);
+            sb.append((char) ch);
         }
-        return buf.toString();
+        return sb.toString();
     }
 
     synchronized Map<String, byte[]> getProperties() {
@@ -1171,44 +1171,38 @@ public class ServiceInfoImpl extends ServiceInfo implements DNSListener, DNSStat
      */
     @Override
     public String toString() {
-        StringBuilder buf = new StringBuilder();
-        buf.append("[" + this.getClass().getSimpleName() + "@" + System.identityHashCode(this) + " ");
-        buf.append("name: '");
-        buf.append((this.getName().length() > 0 ? this.getName() + "." : "") + this.getTypeWithSubtype());
-        buf.append("' address: '");
+        final StringBuilder sb = new StringBuilder();
+        sb.append("[").append(this.getClass().getSimpleName()).append('@').append(System.identityHashCode(this));
+        sb.append(" name: '").append((this.getName().length() > 0 ? this.getName() + "." : "") + this.getTypeWithSubtype());
+        sb.append("' address: '");
         InetAddress[] addresses = this.getInetAddresses();
         if (addresses.length > 0) {
             for (InetAddress address : addresses) {
-                buf.append(address);
-                buf.append(':');
-                buf.append(this.getPort());
-                buf.append(' ');
+                sb.append(address).append(':').append(this.getPort());
+                sb.append(' ');
             }
         } else {
-            buf.append("(null):");
-            buf.append(this.getPort());
+            sb.append("(null):");
+            sb.append(this.getPort());
         }
-        buf.append("' status: '");
-        buf.append(_state.toString());
-        buf.append(this.isPersistent() ? "' is persistent," : "',");
-        buf.append(" has ");
-        buf.append(this.hasData() ? "" : "NO ");
-        buf.append("data");
+        sb.append("' status: '").append(_state.toString());
+        sb.append(this.isPersistent() ? "' is persistent," : "',");
+        sb.append(" has ").append(this.hasData() ? "" : "NO ").append("data");
         if (this.getTextBytes().length > 0) {
             // buf.append("\n");
             // buf.append(this.getNiceTextString());
-            Map<String, byte[]> properties = this.getProperties();
+            final Map<String, byte[]> properties = this.getProperties();
             if (!properties.isEmpty()) {
-                buf.append("\n");
-                for (String key : properties.keySet()) {
-                    buf.append("\t" + key + ": " + new String(properties.get(key)) + "\n");
+                sb.append("\n");
+                for (final String key : properties.keySet()) {
+                    sb.append('\t').append(key).append(": ").append(new String(properties.get(key))).append('\n');
                 }
             } else {
-                buf.append(" empty");
+                sb.append(" empty");
             }
         }
-        buf.append(']');
-        return buf.toString();
+        sb.append(']');
+        return sb.toString();
     }
 
     /**

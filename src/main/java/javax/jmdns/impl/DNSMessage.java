@@ -249,30 +249,30 @@ public abstract class DNSMessage {
      * Debugging.
      */
     String print() {
-        StringBuffer buf = new StringBuffer(200);
-        buf.append(this.toString());
-        buf.append("\n");
-        for (DNSQuestion question : _questions) {
-            buf.append("\tquestion:      ");
-            buf.append(question);
-            buf.append("\n");
+        final StringBuilder sb = new StringBuilder(200);
+        sb.append(this.toString());
+        sb.append("\n");
+        for (final DNSQuestion question : _questions) {
+            sb.append("\tquestion:      ");
+            sb.append(question);
+            sb.append("\n");
         }
-        for (DNSRecord answer : _answers) {
-            buf.append("\tanswer:        ");
-            buf.append(answer);
-            buf.append("\n");
+        for (final DNSRecord answer : _answers) {
+            sb.append("\tanswer:        ");
+            sb.append(answer);
+            sb.append("\n");
         }
-        for (DNSRecord answer : _authoritativeAnswers) {
-            buf.append("\tauthoritative: ");
-            buf.append(answer);
-            buf.append("\n");
+        for (final DNSRecord answer : _authoritativeAnswers) {
+            sb.append("\tauthoritative: ");
+            sb.append(answer);
+            sb.append("\n");
         }
         for (DNSRecord answer : _additionals) {
-            buf.append("\tadditional:    ");
-            buf.append(answer);
-            buf.append("\n");
+            sb.append("\tadditional:    ");
+            sb.append(answer);
+            sb.append("\n");
         }
-        return buf.toString();
+        return sb.toString();
     }
 
     /**

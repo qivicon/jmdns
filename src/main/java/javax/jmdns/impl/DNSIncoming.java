@@ -74,7 +74,7 @@ public final class DNSIncoming extends DNSMessage {
         }
 
         public String readUTF(int len) {
-            StringBuilder buffer = new StringBuilder(len);
+            final StringBuilder buffer = new StringBuilder(len);
             for (int index = 0; index < len; index++) {
                 int ch = this.readUnsignedByte();
                 switch (ch >> 4) {

@@ -278,17 +278,17 @@ public class JmDNSImpl extends JmDNS implements DNSStatefulObject, DNSTaskStarte
          */
         @Override
         public String toString() {
-            final StringBuilder aLog = new StringBuilder(200);
+            final StringBuilder sb = new StringBuilder(200);
             if (this.isEmpty()) {
-                aLog.append("empty");
+                sb.append("empty");
             } else {
                 for (String value : this.values()) {
-                    aLog.append(value);
-                    aLog.append(", ");
+                    sb.append(value);
+                    sb.append(", ");
                 }
-                aLog.setLength(aLog.length() - 2);
+                sb.setLength(sb.length() - 2);
             }
-            return aLog.toString();
+            return sb.toString();
         }
 
     }
@@ -1936,46 +1936,46 @@ public class JmDNSImpl extends JmDNS implements DNSStatefulObject, DNSTaskStarte
      */
     @Override
     public String toString() {
-        final StringBuilder aLog = new StringBuilder(2048);
-        aLog.append("\n");
-        aLog.append("\t---- Local Host -----");
-        aLog.append("\n\t");
-        aLog.append(_localHost);
-        aLog.append("\n\t---- Services -----");
-        for (String key : _services.keySet()) {
-            aLog.append("\n\t\tService: ");
-            aLog.append(key);
-            aLog.append(": ");
-            aLog.append(_services.get(key));
+        final StringBuilder sb = new StringBuilder(2048);
+        sb.append("\n");
+        sb.append("\t---- Local Host -----");
+        sb.append("\n\t");
+        sb.append(_localHost);
+        sb.append("\n\t---- Services -----");
+        for (final String key : _services.keySet()) {
+            sb.append("\n\t\tService: ");
+            sb.append(key);
+            sb.append(": ");
+            sb.append(_services.get(key));
         }
-        aLog.append("\n");
-        aLog.append("\t---- Types ----");
-        for (String key : _serviceTypes.keySet()) {
+        sb.append("\n");
+        sb.append("\t---- Types ----");
+        for (final String key : _serviceTypes.keySet()) {
             ServiceTypeEntry subtypes = _serviceTypes.get(key);
-            aLog.append("\n\t\tType: ");
-            aLog.append(subtypes.getType());
-            aLog.append(": ");
-            aLog.append(subtypes.isEmpty() ? "no subtypes" : subtypes);
+            sb.append("\n\t\tType: ");
+            sb.append(subtypes.getType());
+            sb.append(": ");
+            sb.append(subtypes.isEmpty() ? "no subtypes" : subtypes);
         }
-        aLog.append("\n");
-        aLog.append(_cache.toString());
-        aLog.append("\n");
-        aLog.append("\t---- Service Collectors ----");
-        for (String key : _serviceCollectors.keySet()) {
-            aLog.append("\n\t\tService Collector: ");
-            aLog.append(key);
-            aLog.append(": ");
-            aLog.append(_serviceCollectors.get(key));
+        sb.append("\n");
+        sb.append(_cache.toString());
+        sb.append("\n");
+        sb.append("\t---- Service Collectors ----");
+        for (final String key : _serviceCollectors.keySet()) {
+            sb.append("\n\t\tService Collector: ");
+            sb.append(key);
+            sb.append(": ");
+            sb.append(_serviceCollectors.get(key));
         }
-        aLog.append("\n");
-        aLog.append("\t---- Service Listeners ----");
-        for (String key : _serviceListeners.keySet()) {
-            aLog.append("\n\t\tService Listener: ");
-            aLog.append(key);
-            aLog.append(": ");
-            aLog.append(_serviceListeners.get(key));
+        sb.append("\n");
+        sb.append("\t---- Service Listeners ----");
+        for (final String key : _serviceListeners.keySet()) {
+            sb.append("\n\t\tService Listener: ");
+            sb.append(key);
+            sb.append(": ");
+            sb.append(_serviceListeners.get(key));
         }
-        return aLog.toString();
+        return sb.toString();
     }
 
     /**
@@ -2192,32 +2192,32 @@ public class JmDNSImpl extends JmDNS implements DNSStatefulObject, DNSTaskStarte
          */
         @Override
         public String toString() {
-            final StringBuffer aLog = new StringBuffer();
-            aLog.append("\n\tType: ");
-            aLog.append(_type);
+            final StringBuilder sb = new StringBuilder();
+            sb.append("\n\tType: ");
+            sb.append(_type);
             if (_infos.isEmpty()) {
-                aLog.append("\n\tNo services collected.");
+                sb.append("\n\tNo services collected.");
             } else {
-                aLog.append("\n\tServices");
-                for (String key : _infos.keySet()) {
-                    aLog.append("\n\t\tService: ");
-                    aLog.append(key);
-                    aLog.append(": ");
-                    aLog.append(_infos.get(key));
+                sb.append("\n\tServices");
+                for (final String key : _infos.keySet()) {
+                    sb.append("\n\t\tService: ");
+                    sb.append(key);
+                    sb.append(": ");
+                    sb.append(_infos.get(key));
                 }
             }
             if (_events.isEmpty()) {
-                aLog.append("\n\tNo event queued.");
+                sb.append("\n\tNo event queued.");
             } else {
-                aLog.append("\n\tEvents");
-                for (String key : _events.keySet()) {
-                    aLog.append("\n\t\tEvent: ");
-                    aLog.append(key);
-                    aLog.append(": ");
-                    aLog.append(_events.get(key));
+                sb.append("\n\tEvents");
+                for (final String key : _events.keySet()) {
+                    sb.append("\n\t\tEvent: ");
+                    sb.append(key);
+                    sb.append(": ");
+                    sb.append(_events.get(key));
                 }
             }
-            return aLog.toString();
+            return sb.toString();
         }
     }
 
