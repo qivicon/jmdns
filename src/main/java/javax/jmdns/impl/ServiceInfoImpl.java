@@ -21,6 +21,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Vector;
+import java.util.WeakHashMap;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,7 +35,7 @@ import javax.jmdns.impl.constants.DNSRecordClass;
 import javax.jmdns.impl.constants.DNSRecordType;
 import javax.jmdns.impl.constants.DNSState;
 import javax.jmdns.impl.tasks.DNSTask;
-
+import javax.jmdns.impl.tasks.RecordReaper;
 import javax.jmdns.impl.util.ByteWrangler;
 
 /**
@@ -62,6 +64,12 @@ public class ServiceInfoImpl extends ServiceInfo implements DNSListener, DNSStat
      * Flag to track if an InetAddress was set at least once
      */
     private boolean                 _inetAddressSet = false;
+
+    /**
+     * Flag to track if the PTR was already found
+     */
+    private boolean                 _ptrFound = false;
+    private final Map<DNSRecord, Object> _records = new WeakHashMap<DNSRecord, Object>();
 
     private transient String        _key;
 
@@ -805,6 +813,37 @@ public class ServiceInfoImpl extends ServiceInfo implements DNSListener, DNSStat
         } else {
             // add or update data
             serviceChanged = handleUpdateRecord(dnsCache, now, rec);
+
+            if (!_ptrFound) {
+                final JmDNSImpl dns = this.getDns();
+                if (null != dns) {
+                    final String name = this.getName();
+                    final String typeWithSubType = this.getTypeWithSubtype();
+                    final String alias = (name.length() > 0 ? name + "." : "") + typeWithSubType;
+
+                    final Collection<? extends DNSEntry> entries = dns.getCache().getDNSEntryList(typeWithSubType);
+                    for (final DNSEntry e : entries) {
+                        if (e instanceof DNSRecord.Pointer) {
+                            final DNSRecord.Pointer ptr = (DNSRecord.Pointer) e;
+                            if (alias.equalsIgnoreCase(ptr.getAlias())) {
+                                synchronized (_records) {
+                                    // store references for later cleanup
+                                    _records.put(ptr, this);
+                                    logger.trace("Found matching PTR record: {} for alias: {}", ptr, alias);
+                                    _ptrFound = true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            synchronized (_records) {
+                // store references for later cleanup
+                if (null == _records.put(rec, this)) {
+                    logger.trace("Added related record: {}",rec);
+                }
+            }
         }
 
         // handle changes in service
@@ -832,8 +871,10 @@ public class ServiceInfoImpl extends ServiceInfo implements DNSListener, DNSStat
                         // we should get here only once
                         _inetAddressSet = false;
 
-                        // remove this service from all caches
-                        dns.removeServiceInfoFromCache(this);
+                        // mark all records of this service for removal from cache
+                        expireRelatedDNSRecords();
+
+                        dns.getCache().logCachedContent();
                     }
                 }
             }
@@ -842,6 +883,23 @@ public class ServiceInfoImpl extends ServiceInfo implements DNSListener, DNSStat
         // This is done, to notify the wait loop in method JmDNS.waitForInfoData(ServiceInfo info, int timeout);
         synchronized (this) {
             this.notifyAll();
+        }
+    }
+    /**
+     * Expire all records for this service.
+     *
+     * If these records are still in the DNSCache the {@link RecordReaper} will remove them on next run.
+     */
+    void expireRelatedDNSRecords() {
+        final long now = System.currentTimeMillis();
+        synchronized (_records) {
+            for (final DNSRecord entry :_records.keySet()) {
+                if (entry != null) {
+                    entry.setWillExpireSoon(now);
+                    logger.trace("setWillExpireSoon() related record: {}", entry);
+                }
+            }
+            _records.clear();
         }
     }
 
