@@ -94,9 +94,9 @@ public class ServiceEventImpl extends ServiceEvent {
             .append("' type: '").append(this.getType())
             .append("' info: '").append(this.getInfo())
             .append("']");
-        // buf.append("' source: ");
-        // buf.append("\n\t" + source + "");
-        // buf.append("\n]");
+//            .append("' source: ")
+//            .append("\n\t" + source + "")
+//            .append("\n]");
         return sb.toString();
     }
 

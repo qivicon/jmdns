@@ -20,7 +20,7 @@ public class ByteWrangler {
     public static final int MAX_VALUE_LENGTH = 255;
 
     /**
-     * Maximum number of bytes a data can consist of.
+     * Maximum number of bytes record data can consist of.
      * It is {@link #MAX_VALUE_LENGTH} + 1 because the first byte contains the number of the following bytes.
      */
     public static final int MAX_DATA_LENGTH = MAX_VALUE_LENGTH + 1;
@@ -33,6 +33,8 @@ public class ByteWrangler {
     /**
      * Representation of empty text.
      * The first byte denotes the length of the following character bytes (in this case zero.)
+     *
+     * FIXME: Should this be exported as a method since it could change externally???
      */
     public final static byte[] EMPTY_TXT = new byte[] { 0 };
 
@@ -59,7 +61,14 @@ public class ByteWrangler {
     }
 
     /**
-     * Read data bytes as a UTF stream.
+     * Read data bytes as UTF-8 to a String.
+     */
+    public static String readUTF(final byte data[]) {
+        return readUTF(data, 0, data.length);
+    }
+
+    /**
+     * Read data bytes as UTF-8 to a String.
      */
     public static String readUTF(final byte data[], final int off, final int len) {
         int offset = off;

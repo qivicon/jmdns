@@ -9,7 +9,9 @@ import java.net.DatagramPacket;
 import java.net.Inet4Address;
 import java.net.Inet6Address;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
+import java.net.SocketAddress;
 import java.net.SocketException;
 import java.util.AbstractMap;
 import java.util.ArrayList;
@@ -45,6 +47,7 @@ import javax.jmdns.impl.constants.DNSRecordClass;
 import javax.jmdns.impl.constants.DNSRecordType;
 import javax.jmdns.impl.constants.DNSState;
 import javax.jmdns.impl.tasks.DNSTask;
+import javax.jmdns.impl.tasks.RecordReaper;
 import javax.jmdns.impl.util.NamedThreadFactory;
 
 // REMIND: multiple IP addresses
@@ -52,7 +55,7 @@ import javax.jmdns.impl.util.NamedThreadFactory;
 /**
  * mDNS implementation in Java.
  *
- * @author Arthur van Hoff, Rick Blair, Jeff Sonstein, Werner Randelshofer, Pierre Frisch, Scott Lewis, Kai Kreuzer
+ * @author Arthur van Hoff, Rick Blair, Jeff Sonstein, Werner Randelshofer, Pierre Frisch, Scott Lewis, Kai Kreuzer, Victor Toni
  */
 public class JmDNSImpl extends JmDNS implements DNSStatefulObject, DNSTaskStarter {
     private static Logger logger = LoggerFactory.getLogger(JmDNSImpl.class.getName());
@@ -392,9 +395,8 @@ public class JmDNSImpl extends JmDNS implements DNSStatefulObject, DNSTaskStarte
      */
     public JmDNSImpl(InetAddress address, String name) throws IOException {
         super();
-        if (logger.isDebugEnabled()) {
-            logger.debug("JmDNS instance created");
-        }
+        logger.debug("JmDNS instance created");
+
         _cache = new DNSCache(100);
 
         _listeners = Collections.synchronizedList(new ArrayList<DNSListener>());
@@ -461,14 +463,18 @@ public class JmDNSImpl extends JmDNS implements DNSStatefulObject, DNSTaskStarte
         // }
         _socket = new MulticastSocket(DNSConstants.MDNS_PORT);
         if ((hostInfo != null) && (hostInfo.getInterface() != null)) {
-            try {
-                _socket.setNetworkInterface(hostInfo.getInterface());
-            } catch (SocketException e) {
-                logger.debug("openMulticastSocket() Set network interface exception: {}", e.getMessage());
-            }
+            final SocketAddress multicastAddr = new InetSocketAddress(_group, DNSConstants.MDNS_PORT);
+
+            logger.trace("Trying to joinGroup({}, {})", multicastAddr, hostInfo.getInterface());
+
+            // this joinGroup() might be less surprisingly so this is the default
+            _socket.joinGroup(multicastAddr, hostInfo.getInterface());
+        } else {
+            logger.trace("Trying to joinGroup({})", _group);
+            _socket.joinGroup(_group);
         }
+
         _socket.setTimeToLive(255);
-        _socket.joinGroup(_group);
     }
 
     private void closeMulticastSocket() {
@@ -1388,8 +1394,20 @@ public class JmDNSImpl extends JmDNS implements DNSStatefulObject, DNSTaskStarte
                 listener.updateRecord(this.getCache(), now, rec);
             }
         }
-        if (DNSRecordType.TYPE_PTR.equals(rec.getRecordType()))
-        // if (DNSRecordType.TYPE_PTR.equals(rec.getRecordType()) || DNSRecordType.TYPE_SRV.equals(rec.getRecordType()))
+
+        /**
+         * This is the place where we actually add & remove services.
+         *  - For adding we need a PTR record.
+         *  - For removing we want also to consider expired SRV records because this means the service hasn't been updated
+         *    and is probably not reachable anymore.
+         *
+         * For details see also RFC 6762 / Section 10.4:
+         * @see https://tools.ietf.org/html/rfc6762#section-10.4
+         */
+        if (
+                DNSRecordType.TYPE_PTR.equals(rec.getRecordType())
+                || ( DNSRecordType.TYPE_SRV.equals(rec.getRecordType()) && Operation.Remove.equals(operation))
+        )
         {
             ServiceEvent event = rec.getServiceEvent(this);
             if ((event.getInfo() == null) || !event.getInfo().hasData()) {
@@ -1409,6 +1427,7 @@ public class JmDNSImpl extends JmDNS implements DNSStatefulObject, DNSTaskStarte
             } else {
                 serviceListenerList = Collections.emptyList();
             }
+
             if (logger.isTraceEnabled()) {
                 logger.trace("{}.updating record for event: {} list {} operation: {}",
                     this.getName(),
@@ -1417,6 +1436,7 @@ public class JmDNSImpl extends JmDNS implements DNSStatefulObject, DNSTaskStarte
                     operation
                 );
             }
+          
             if (!serviceListenerList.isEmpty()) {
                 final ServiceEvent localEvent = event;
 
@@ -1470,14 +1490,23 @@ public class JmDNSImpl extends JmDNS implements DNSStatefulObject, DNSTaskStarte
             final boolean unique = newRecord.isUnique();
             final DNSRecord cachedRecord = (DNSRecord) this.getCache().getDNSEntry(newRecord);
             logger.debug("{} handle response cached record: {}", this.getName(), cachedRecord);
+
+            // RFC 6762, section 10.2 Announcements to Flush Outdated Cache Entries
+            // https://tools.ietf.org/html/rfc6762#section-10.2
+            // if (cache-flush a.k.a unique), remove all existing records matching these criterias :--
+            //     1. same name
+            //     2. same record type
+            //     3. same record class
+            //     4. record is older than 1 second.
             if (unique) {
                 for (DNSEntry entry : this.getCache().getDNSEntryList(newRecord.getKey())) {
                     if (    newRecord.getRecordType().equals(entry.getRecordType()) &&
                             newRecord.getRecordClass().equals(entry.getRecordClass()) &&
-                            (entry != cachedRecord)
+                            isOlderThanOneSecond( (DNSRecord)entry, now )                            
                     ) {
                         logger.trace("setWillExpireSoon() on: {}", entry);
-                        ((DNSRecord) entry).setWillExpireSoon(now);
+                        // this set ttl to 1 second,
+                        ((DNSRecord) entry).setWillExpireSoon(now);  
                     }
                 }
             }
@@ -1548,6 +1577,16 @@ public class JmDNSImpl extends JmDNS implements DNSStatefulObject, DNSTaskStarte
             this.updateRecord(now, newRecord, cacheOperation);
         }
 
+    }
+    
+    /**
+     *  
+     * @param dnsRecord 
+     * @param timeToCompare a given times for comparison
+     * @return true if dnsRecord create time is older than 1 second, relative to the given time; false otherwise 
+     */
+    private boolean isOlderThanOneSecond(DNSRecord dnsRecord, long timeToCompare) {
+        return (dnsRecord.getCreated() < (timeToCompare - DNSConstants.FLUSH_RECORD_OLDER_THAN_1_SECOND*1000));
     }
 
     /**
@@ -1971,12 +2010,13 @@ public class JmDNSImpl extends JmDNS implements DNSStatefulObject, DNSTaskStarte
     /**
      * Checks the cache of expired records and removes them.
      * If any records are about to expire it tries to get them refreshed.
-     * 
+     *
      * <p>
      * Implementation note:<br />
      * This method is called by the {@link RecordReaper} every {@link DNSConstants#RECORD_REAPER_INTERVAL} milliseconds.
      * </p>
-     * @see DNSRecord, {@link RecordReaper}.
+     * @see DNSRecord
+     * @see RecordReaper
      */
     public void cleanCache() {
         this.getCache().logCachedContent();
@@ -2019,7 +2059,7 @@ public class JmDNSImpl extends JmDNS implements DNSStatefulObject, DNSTaskStarte
 
         // Stop JmDNS
         // This protects against recursive calls
-        if (this.closeState()) {
+        if (this.cancelState()) {
             // We got the tie break now clean up
 
             // Stop the timer

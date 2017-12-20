@@ -208,14 +208,12 @@ public final class DNSIncoming extends DNSMessage {
             int numAuthorities = _messageInputStream.readUnsignedShort();
             int numAdditionals = _messageInputStream.readUnsignedShort();
 
-            if (logger.isDebugEnabled()) {
-                logger.debug("DNSIncoming() questions:{} answers:{} authorities:{} additionals:{}",
-                        numQuestions,
-                        numAnswers,
-                        numAuthorities,
-                        numAdditionals
-                );
-            }
+            logger.debug("DNSIncoming() questions:{} answers:{} authorities:{} additionals:{}",
+                    numQuestions,
+                    numAnswers,
+                    numAuthorities,
+                    numAdditionals
+            );
 
             // We need some sanity checks
             // A question is at least 5 bytes and answer 11 so check what we have
@@ -378,7 +376,6 @@ public final class DNSIncoming extends DNSMessage {
                     os = ByteWrangler.readUTF(hinfoBytes, off + 1, hinfoBytes[off]);
                     off += hinfoBytes[off] + 1; // skip bytes read for OS
                 }
-
                 rec = new DNSRecord.HostInformation(domain, recordClass, unique, ttl, cpu, os);
                 break;
             case TYPE_OPT:
@@ -463,7 +460,7 @@ public final class DNSIncoming extends DNSMessage {
                                 break;
                             case Unknown:
                                 if (optionCodeInt >= 65001 && optionCodeInt <= 65534) {
-                                     // RFC 6891 defines this range as used for experimental/local purposes.
+                                    // RFC 6891 defines this range as used for experimental/local purposes.
                                     if (logger.isDebugEnabled()) {
                                         logger.debug("There was an OPT answer using an experimental/local option code: {} data: {}", optionCodeInt, this._hexString(optiondata));
                                     }
